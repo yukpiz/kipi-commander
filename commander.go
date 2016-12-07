@@ -84,9 +84,6 @@ func (c *KeyConnection) Command(command string) ([]string, string) {
 }
 
 func (c *KeyConnection) Dispose() error {
-	if err := c.Connection.Session.Close(); err != nil {
-		return err
-	}
 	if err := c.Connection.Client.Close(); err != nil {
 		return err
 	}

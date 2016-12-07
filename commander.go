@@ -3,18 +3,22 @@ package commander
 import (
 	"bytes"
 	"fmt"
+	"github.com/pkg/sftp"
 	"golang.org/x/crypto/ssh"
 	"io/ioutil"
+	"os"
+	"path/filepath"
 )
 
 type Connection struct {
-	Host     string
-	Port     int
-	User     string
-	Passwd   string
-	Protocol string
-	Client   *ssh.Client
-	Session  *ssh.Session
+	Host       string
+	Port       int
+	User       string
+	Passwd     string
+	Protocol   string
+	Client     *ssh.Client
+	SftpClient *sftp.Client
+	Session    *ssh.Session
 }
 
 type PasswdConnection struct {
@@ -57,6 +61,15 @@ func (c *KeyConnection) Connect() ([]string, error) {
 	logs = append(logs, "SSH Connecting...\t[ OK ]")
 	c.Connection.Client = client
 
+	//Sftp Client.
+	sftp, err := sftp.NewClient(client)
+	if err != nil {
+		logs = append(logs, "SFTP Connecting...\t[ NG ]")
+		return logs, err
+	}
+	logs = append(logs, "SFTP Connecting...\t[ OK ]")
+	c.Connection.SftpClient = sftp
+
 	//Generate New Session.
 	session, err := c.Connection.Client.NewSession()
 	if err != nil {
@@ -81,6 +94,26 @@ func (c *KeyConnection) Command(command string) ([]string, string) {
 		logs = append(logs, "Complated Command!")
 	}
 	return logs, b.String()
+}
+
+func (c *KeyConnection) Download(fromDir string, destDir string, fname string) error {
+	src, err := c.Connection.SftpClient.Open(filepath.Join(fromDir, fname))
+	if err != nil {
+		return err
+	}
+	defer src.Close()
+
+	dest, err := os.Create(filepath.Join(destDir, fname))
+	if err != nil {
+		return err
+	}
+	defer dest.Close()
+
+	_, err = src.WriteTo(dest)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func (c *KeyConnection) Dispose() error {
